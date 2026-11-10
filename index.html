@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Primetime Ledger</title>
+<meta name="description" content="Rate TV shows, rank them by score or head-to-head duels, and see what you reward.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231B5FD1'/%3E%3Cpath d='M7 10h18v3H7zm0 6h18v3H7zm0 6h11v3H7z' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout concept: a broadcast ratings desk. A color-bar strip crowns a ranked board; Rankings, Duel and Insights are tabs over the same list of shows. */
+:root{
+  --bg:#EDF0EE; --surface:#F7F9F8; --ink:#121A18; --muted:#5A6965; --line:#D2D9D6;
+  --accent:#1B5FD1; --accent-ink:#FFFFFF; --accent-soft:#DCE7FA; --danger:#B3362F;
+  --b1:#D9D9D4; --b2:#E6C229; --b3:#28B5C9; --b4:#3DAA5C; --b5:#C94FA0; --b6:#D8483D; --b7:#2B4FC2;
+  --font-display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --font-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1312; --surface:#151C1B; --ink:#E7EEEB; --muted:#93A39E; --line:#25302D;
+    --accent:#6FA3FF; --accent-ink:#0B1220; --accent-soft:#1B2A44; --danger:#F0807A; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1312; --surface:#151C1B; --ink:#E7EEEB; --muted:#93A39E; --line:#25302D;
+  --accent:#6FA3FF; --accent-ink:#0B1220; --accent-soft:#1B2A44; --danger:#F0807A; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font-body); font-size:15px; line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 3rem;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:1040px;margin:0 auto}
+.bars{display:grid;grid-template-columns:repeat(7,1fr);height:8px;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px))) ;margin-right:calc(-1 * max(16px,env(safe-area-inset-right,0px)))}
+.bars i{display:block}
+.bars i:nth-child(1){background:var(--b1)}.bars i:nth-child(2){background:var(--b2)}.bars i:nth-child(3){background:var(--b3)}
+.bars i:nth-child(4){background:var(--b4)}.bars i:nth-child(5){background:var(--b5)}.bars i:nth-child(6){background:var(--b6)}.bars i:nth-child(7){background:var(--b7)}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem;padding:1.5rem 0 1rem}
+h1{font-family:var(--font-display);font-weight:800;font-size:clamp(2.4rem,7vw,3.6rem);line-height:.9;margin:0;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+.summary{color:var(--muted);margin:.4rem 0 0;font-variant-numeric:tabular-nums}
+.top-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:.5rem .9rem;font-weight:600;cursor:pointer;line-height:1.2}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--danger)}
+.btn.small{padding:.35rem .65rem;font-size:.85rem}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs{display:flex;gap:1.5rem;border-bottom:1px solid var(--line);margin-bottom:1.25rem;overflow-x:auto}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:.6rem 0;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.notice{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;justify-content:space-between;background:var(--accent-soft);border-radius:10px;padding:.7rem 1rem;margin-bottom:1rem}
+.notice p{margin:0;min-width:0}
+.controls{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:.9rem}
+.controls .grow{flex:1 1 14rem;min-width:0}
+.field,input[type=text],input[type=number],input[type=search],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.55rem .7rem;min-width:0}
+select{width:auto}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:.3rem .8rem;font-size:.85rem;font-weight:500;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);font-weight:600}
+.chip .n{color:var(--muted);margin-left:.3rem;font-variant-numeric:tabular-nums}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:var(--surface);border:0;padding:.45rem .8rem;font-weight:600;font-size:.85rem;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.board{border-top:2px solid var(--ink)}
+.board-head,.row{display:grid;grid-template-columns:3.4rem 3.25rem minmax(0,1fr) 6.5rem 5.5rem;gap:1rem;align-items:center}
+.board-head{padding:.45rem 0;font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);border-bottom:1px solid var(--line)}
+.board-head .r{text-align:right}
+.row{padding:.75rem 0;border-bottom:1px solid var(--line);cursor:pointer}
+.row:hover{background:var(--surface)}
+.rank{font-family:var(--font-display);font-weight:800;font-size:2.4rem;line-height:1;text-align:right;font-variant-numeric:tabular-nums}
+.rank.dim{color:var(--muted);font-weight:600}
+.tile{width:3.25rem;height:4.4rem;border-radius:6px;display:grid;place-items:center;color:#fff;font-family:var(--font-display);font-weight:800;font-size:1.4rem;letter-spacing:.03em}
+.tile.big{width:6.5rem;height:9rem;font-size:2.6rem;border-radius:8px}
+.row-main{min-width:0}
+.row-title{background:none;border:0;padding:0;font-weight:700;font-size:1.05rem;text-align:left;cursor:pointer;max-width:100%;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:.85rem;display:flex;flex-wrap:wrap;gap:.1rem .6rem;align-items:center;margin-top:.15rem}
+.pill{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;border:1px solid var(--line);border-radius:4px;padding:.05rem .4rem;color:var(--muted)}
+.pill.watching{color:var(--accent);border-color:var(--accent)}
+.mini{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;height:2.6rem;align-items:end}
+.mb{display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;gap:2px}
+.mb i{display:block;width:100%;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px}
+.mb b{font-size:.58rem;color:var(--muted);font-weight:600;line-height:1}
+.score{text-align:right;font-variant-numeric:tabular-nums}
+.score .big{font-family:var(--font-display);font-weight:800;font-size:2.1rem;line-height:1}
+.score .sub{display:block;font-size:.72rem;color:var(--muted)}
+.empty{padding:2.5rem 0;color:var(--muted);text-align:center}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.1rem}
+.duel{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center}
+.vs{font-family:var(--font-display);font-weight:800;font-size:1.6rem;color:var(--muted)}
+.duel-card{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.6rem;min-width:0}
+.duel-card h3{font-family:var(--font-display);font-weight:800;font-size:1.9rem;line-height:1;margin:.2rem 0 0;text-transform:uppercase;overflow-wrap:anywhere}
+.duel-actions{display:flex;gap:.6rem;justify-content:center;margin-top:1rem;align-items:center;flex-wrap:wrap}
+.legend{color:var(--muted);font-size:.85rem;margin:.6rem 0 0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:1rem}
+h2{font-family:var(--font-display);font-weight:800;text-transform:uppercase;font-size:1.35rem;margin:0 0 .8rem;letter-spacing:.02em}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.8rem;margin-bottom:1rem}
+.tiles .panel .v{font-family:var(--font-display);font-weight:800;font-size:2.2rem;line-height:1;font-variant-numeric:tabular-nums}
+.tiles .panel .k{color:var(--muted);font-size:.8rem;margin-top:.2rem}
+.hist{display:flex;align-items:flex-end;gap:.4rem;height:9rem;border-bottom:1px solid var(--line)}
+.hist .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0;gap:.2rem}
+.hist .col i{display:block;width:100%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+.hist .col span{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.hist-x{display:flex;gap:.4rem}.hist-x span{flex:1;text-align:center;font-size:.75rem;color:var(--muted);padding-top:.25rem}
+.brow{display:grid;grid-template-columns:minmax(5rem,9rem) 1fr 3rem;gap:.7rem;align-items:center;padding:.3rem 0;font-size:.9rem}
+.brow .track{height:10px;background:var(--bg);border-radius:5px;overflow:hidden}
+.brow .track i{display:block;height:100%;background:var(--accent)}
+.brow .val{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.brow .lab{min-width:0;overflow-wrap:anywhere}
+.overlay{position:fixed;inset:0;background:rgba(5,10,9,.55);z-index:20;overflow:auto;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;justify-content:center;align-items:flex-start}
+.sheet{background:var(--bg);border:1px solid var(--line);border-radius:14px;width:min(640px,100%);padding:1.25rem;margin-block:auto}
+.sheet h2{font-size:1.7rem}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.8rem}
+label.lbl{display:flex;flex-direction:column;gap:.25rem;font-size:.8rem;font-weight:600;color:var(--muted)}
+.sliders{display:grid;gap:.35rem;margin-top:.3rem}
+.slider{display:grid;grid-template-columns:minmax(6.5rem,8.5rem) 1fr 2.6rem;gap:.7rem;align-items:center;font-size:.9rem}
+.slider input{width:100%;accent-color:var(--accent);margin:0}
+.slider output{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.overall{display:flex;align-items:baseline;gap:.4rem;margin:.6rem 0 0}
+.overall span{font-family:var(--font-display);font-weight:800;font-size:2.6rem;line-height:1;font-variant-numeric:tabular-nums}
+.overall small{color:var(--muted)}
+.form-section{margin-top:1rem}
+.form-section>.cap{font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:.4rem;display:block}
+.form-foot{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:space-between;align-items:center;margin-top:1.25rem}
+.form-foot .right{display:flex;gap:.6rem;flex-wrap:wrap}
+.err{color:var(--danger);font-size:.85rem;margin:.5rem 0 0;min-height:1.2em}
+.inline-add{display:flex;gap:.5rem;margin-top:.5rem}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:.55rem 1rem;border-radius:8px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
+.note{color:var(--muted);font-size:.85rem}
+.lb{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
+.lb li{display:grid;grid-template-columns:1.6rem 1fr auto;gap:.6rem;align-items:baseline;font-size:.92rem}
+.lb li b{font-family:var(--font-display);font-size:1.2rem}
+.lb li span.e{font-variant-numeric:tabular-nums;color:var(--muted)}
+@media (max-width:640px){
+  .board-head{display:none}
+  .row{grid-template-columns:2.2rem 2.8rem minmax(0,1fr) auto;gap:.7rem}
+  .row .mini-wrap{display:none}
+  .rank{font-size:1.8rem}
+  .tile{width:2.8rem;height:3.8rem;font-size:1.15rem}
+  .duel{grid-template-columns:1fr}
+  .vs{text-align:center}
+  .slider{grid-template-columns:1fr 2.6rem;grid-template-areas:"n o" "r r"}
+  .slider .s-name{grid-area:n}.slider output{grid-area:o}.slider input{grid-area:r}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Standalone page basics */
+html{color-scheme:light}
+body{margin:0}
+[hidden]{display:none!important}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <header class="top">
+    <div>
+      <h1>Primetime Ledger</h1>
+      <p class="summary" id="summary"></p>
+      <p class="summary" id="sync" role="status" style="margin-top:.1rem;font-size:.82rem"></p>
+    </div>
+    <div class="top-actions">
+      <button class="btn" type="button" data-action="openData" id="dataBtn">Backup</button>
+      <button class="btn primary" type="button" data-action="add" id="addBtn">Add a show</button>
+    </div>
+  </header>
+  <div class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" type="button" data-action="tab" data-tab="rank" id="tab-rank">Rankings</button>
+    <button class="tab" role="tab" type="button" data-action="tab" data-tab="duel" id="tab-duel">Duel</button>
+    <button class="tab" role="tab" type="button" data-action="tab" data-tab="stats" id="tab-stats">Insights</button>
+  </div>
+  <div id="notice"></div>
+  <main id="app"></main>
+</div>
+<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div></div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+
+<script>
+(function(){
+  var KEY='primetime-ledger-v1';
+  var CATS=[['writing','Writing'],['acting','Acting'],['look','Look & sound'],['pacing','Pacing'],['rewatch','Rewatchability']];
+  var STATUS={watching:'Watching',completed:'Completed',dropped:'Dropped',plan:'Watchlist'};
+  var BASE_GENRES=['Drama','Comedy','Crime','Sci-Fi','Fantasy','Thriller','Horror','Animation','Documentary','Reality','Romance','Family','Historical','Mystery'];
+
+  var state={shows:[]};
+  var ui={tab:'rank',status:'rated',q:'',genre:'',by:'score',sort:'rank'};
+  var duel={a:null,b:null,last:null,msg:''};
+  var form=null;
+  var dataConfirm=false;
+  var toastTimer=null;
+
+  function $(s,r){return (r||document).querySelector(s)}
+  function uid(){return 's'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3)}
+  function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function fmt(n){return (Math.round(n*10)/10).toFixed(1)}
+  function num(v){if(v===null||v===undefined||v==='')return null;var n=Number(v);return isFinite(n)?n:null}
+  function hash(str){var h=0;for(var i=0;i<str.length;i++){h=(h*31+str.charCodeAt(i))>>>0}return h}
+
+  function mk(i,title,year,network,genres,status,sc,seasons,notes){
+    var s=sc||[7,7,7,7,7];
+    return {id:uid(),title:title,year:year,network:network,genres:genres,status:status,seasons:seasons,notes:notes||'',
+      scores:{writing:s[0],acting:s[1],look:s[2],pacing:s[3],rewatch:s[4]},elo:1000,duels:0,added:Date.now()+i,updated:Date.now()+i,sample:true};
+  }
+  function sampleShows(){
+    return [
+      mk(0,'Breaking Bad',2008,'AMC',['Crime','Drama'],'completed',[10,10,8.5,9,9],5),
+      mk(1,'The Wire',2002,'HBO',['Crime','Drama'],'completed',[10,9,7,8,9],5),
+      mk(2,'Succession',2018,'HBO',['Drama','Comedy'],'completed',[9.5,10,8,9,8.5],4),
+      mk(3,'Severance',2022,'Apple TV+',['Sci-Fi','Thriller'],'completed',[9,9,8.5,8.5,8.5],2),
+      mk(4,'Fleabag',2016,'BBC',['Comedy','Drama'],'completed',[9.5,10,7.5,10,9.5],2),
+      mk(5,'Andor',2022,'Disney+',['Sci-Fi','Drama'],'completed',[9.5,9,9,8,8],2),
+      mk(6,'The Bear',2022,'FX',['Drama','Comedy'],'watching',[8.5,9.5,9,9,8],3),
+      mk(7,'Arcane',2021,'Netflix',['Animation','Sci-Fi'],'completed',[8.5,8.5,10,8.5,8],2),
+      mk(8,'Bluey',2018,'ABC Kids',['Animation','Family'],'watching',[9,8.5,8.5,9,10],3),
+      mk(9,'Mad Men',2007,'AMC',['Drama'],'completed',[9,9,9.5,6.5,7],7),
+      mk(10,'True Detective',2014,'HBO',['Crime','Mystery'],'dropped',[7.5,8,8,6,6],2),
+      mk(11,'Shogun',2024,'FX',['Drama','Historical'],'plan',null,null)
+    ];
+  }
+
+  function norm(x){
+    if(!x||typeof x!=='object')return null;
+    var sc=x.scores||{};
+    var s={id:typeof x.id==='string'&&x.id?x.id:uid(),title:String(x.title||'').slice(0,120),year:num(x.year),network:String(x.network||'').slice(0,60),
+      genres:Array.isArray(x.genres)?x.genres.map(function(g){return String(g).slice(0,30)}).slice(0,8):[],
+      status:STATUS[x.status]?x.status:'completed',seasons:num(x.seasons),notes:String(x.notes||'').slice(0,1000),scores:{},
+      elo:num(x.elo)===null?1000:num(x.elo),duels:num(x.duels)||0,added:num(x.added)||Date.now(),updated:num(x.updated)||Date.now()};
+    if(x.sample)s.sample=true;
+    CATS.forEach(function(c){var v=Number(sc[c[0]]);s.scores[c[0]]=(v>=1&&v<=10)?v:7});
+    return s.title?s:null;
+  }
+  function load(){
+    try{
+      var raw=localStorage.getItem(KEY);
+      if(raw){var d=JSON.parse(raw);if(d&&Array.isArray(d.shows)){return {shows:d.shows.map(norm).filter(Boolean),savedAt:Number(d.savedAt)||0}}}
+    }catch(e){}
+    return {shows:sampleShows(),savedAt:0};
+  }
+
+  /* Saving: every change is written to this browser (localStorage) right away. */
+  function setSync(t){var el=$('#sync');if(el)el.textContent=t}
+  function persist(){
+    state.savedAt=Date.now();
+    try{localStorage.setItem(KEY,JSON.stringify(state));setSync('Saved in this browser')}
+    catch(e){setSync('This browser blocked saving. Use Backup to keep your list.')}
+  }
+
+  function score(s){
+    if(s.status==='plan')return null;
+    var t=0;CATS.forEach(function(c){t+=s.scores[c[0]]});
+    return Math.round(t/CATS.length*10)/10;
+  }
+  function ranked(){
+    var r=state.shows.filter(function(s){return s.status!=='plan'});
+    r.sort(function(a,b){
+      if(ui.by==='elo')return (b.elo-a.elo)||(score(b)-score(a))||a.title.localeCompare(b.title);
+      return (score(b)-score(a))||(b.elo-a.elo)||a.title.localeCompare(b.title);
+    });
+    return r;
+  }
+  function rankMap(){var m={};ranked().forEach(function(s,i){m[s.id]=i+1});return m}
+
+  function tile(s,big){
+    var h=hash(s.title)%360;
+    var ini=s.title.split(/\s+/).filter(function(w){return /[A-Za-z0-9]/.test(w)}).slice(0,2).map(function(w){return w.charAt(0)}).join('').toUpperCase();
+    return '<div class="tile'+(big?' big':'')+'" style="background:linear-gradient(155deg,hsl('+h+' 48% 40%),hsl('+((h+40)%360)+' 52% 26%))" aria-hidden="true">'+esc(ini)+'</div>';
+  }
+  function metaLine(s){
+    var bits=[];
+    if(s.year)bits.push(String(s.year));
+    if(s.network)bits.push(esc(s.network));
+    if(s.seasons)bits.push(s.seasons+(s.seasons===1?' season':' seasons'));
+    return bits.join(' · ');
+  }
+
+  /* ---------- header + notice ---------- */
+  function renderChrome(){
+    var rated=state.shows.filter(function(s){return s.status!=='plan'});
+    var avg=rated.length?rated.reduce(function(a,s){return a+score(s)},0)/rated.length:null;
+    $('#summary').textContent=state.shows.length?
+      (rated.length+' rated · '+(avg===null?'no average yet':'average '+fmt(avg))+' · '+(state.shows.length-rated.length)+' on the watchlist'):
+      'Nothing here yet. Add the first show you want to rank.';
+    ['rank','duel','stats'].forEach(function(t){$('#tab-'+t).setAttribute('aria-selected',String(ui.tab===t))});
+    var hasSample=state.shows.some(function(s){return s.sample});
+    $('#notice').innerHTML=hasSample?'<div class="notice"><p>These shows and scores are examples. Edit any of them to make it yours, or clear them all and start your own list.</p><button class="btn small" type="button" data-action="clearSamples">Clear examples</button></div>':'';
+  }
+
+  /* ---------- rankings ---------- */
+  function counts(){
+    var c={rated:0,watching:0,completed:0,dropped:0,plan:0};
+    state.shows.forEach(function(s){c[s.status]++;if(s.status!=='plan')c.rated++});
+    return c;
+  }
+  function allGenres(){
+    var set={};
+    BASE_GENRES.forEach(function(g){set[g]=1});
+    state.shows.forEach(function(s){s.genres.forEach(function(g){set[g]=1})});
+    return Object.keys(set).sort();
+  }
+  function renderRank(){
+    var c=counts();
+    var chips=[['rated','Ranked'],['watching','Watching'],['completed','Completed'],['dropped','Dropped'],['plan','Watchlist']].map(function(p){
+      return '<button class="chip" type="button" data-action="status" data-v="'+p[0]+'" aria-pressed="'+(ui.status===p[0])+'">'+p[1]+'<span class="n">'+c[p[0]]+'</span></button>';
+    }).join('');
+    var used={};state.shows.forEach(function(s){s.genres.forEach(function(g){used[g]=1})});
+    var gOpts='<option value="">All genres</option>'+Object.keys(used).sort().map(function(g){return '<option'+(ui.genre===g?' selected':'')+'>'+esc(g)+'</option>'}).join('');
+    var sorts=[['rank','Rank'],['title','A to Z'],['year','Newest year'],['added','Recently added']].map(function(o){return '<option value="'+o[0]+'"'+(ui.sort===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('');
+    $('#app').innerHTML=
+      '<div class="chips" style="margin-bottom:.8rem">'+chips+'</div>'+
+      '<div class="controls">'+
+        '<div class="grow"><input type="search" id="q" placeholder="Search title, network or genre" value="'+esc(ui.q)+'" aria-label="Search shows"></div>'+
+        '<select id="genreSel" aria-label="Genre">'+gOpts+'</select>'+
+        '<select id="sortSel" aria-label="Sort">'+sorts+'</select>'+
+        '<div class="seg" role="group" aria-label="Rank by"><button type="button" data-action="by" data-v="score" aria-pressed="'+(ui.by==='score')+'">By score</button><button type="button" data-action="by" data-v="elo" aria-pressed="'+(ui.by==='elo')+'">By duels</button></div>'+
+      '</div>'+
+      '<div class="board"><div class="board-head"><span class="r">Rank</span><span></span><span>Show</span><span class="mini-wrap">Writing · Acting · Look · Pacing · Rewatch</span><span class="r">Score</span></div><div id="list"></div></div>';
+    renderList();
+  }
+  function visible(){
+    var q=ui.q.trim().toLowerCase();
+    var rk=rankMap();
+    var list=state.shows.filter(function(s){
+      if(ui.status==='rated'){if(s.status==='plan')return false}else if(s.status!==ui.status)return false;
+      if(ui.genre&&s.genres.indexOf(ui.genre)<0)return false;
+      if(q&&(s.title+' '+s.network+' '+s.genres.join(' ')).toLowerCase().indexOf(q)<0)return false;
+      return true;
+    });
+    list.sort(function(a,b){
+      if(ui.sort==='title')return a.title.localeCompare(b.title);
+      if(ui.sort==='year')return (b.year||0)-(a.year||0)||a.title.localeCompare(b.title);
+      if(ui.sort==='added')return b.added-a.added;
+      return ((rk[a.id]||1e9)-(rk[b.id]||1e9))||a.title.localeCompare(b.title);
+    });
+    return {list:list,rk:rk};
+  }
+  function rowHTML(s,rk){
+    var sc=score(s),n=rk[s.id];
+    var mini='';
+    if(sc!==null){
+      mini='<div class="mini">'+CATS.map(function(c){
+        return '<span class="mb" title="'+esc(c[1])+' '+fmt(s.scores[c[0]])+'"><i style="height:'+(s.scores[c[0]]*10)+'%"></i><b>'+esc(c[1].charAt(0))+'</b></span>';
+      }).join('')+'</div>';
+    }
+    var gen=s.genres.length?'<span>'+esc(s.genres.join(', '))+'</span>':'';
+    var m=metaLine(s);
+    var elo=sc===null?'':'<span class="sub">'+(s.duels>0?'Elo '+Math.round(s.elo)+' · '+s.duels+(s.duels===1?' duel':' duels'):'No duels yet')+'</span>';
+    return '<div class="row" data-action="edit" data-id="'+esc(s.id)+'">'+
+      '<div class="rank'+(n?'':' dim')+'">'+(n?n:'&ndash;')+'</div>'+
+      tile(s,false)+
+      '<div class="row-main"><button class="row-title" type="button">'+esc(s.title)+'</button>'+
+        '<div class="meta"><span class="pill '+s.status+'">'+STATUS[s.status]+'</span>'+(m?'<span>'+m+'</span>':'')+gen+'</div></div>'+
+      '<div class="mini-wrap">'+mini+'</div>'+
+      '<div class="score">'+(sc===null?'<span class="sub">Not rated</span>':'<span class="big">'+fmt(sc)+'</span>'+elo)+'</div>'+
+    '</div>';
+  }
+  function renderList(){
+    var v=visible();
+    var el=$('#list');if(!el)return;
+    if(!v.list.length){
+      el.innerHTML='<div class="empty">'+(state.shows.length?'No shows match these filters.':'Your board is empty. Use Add a show to start.')+'</div>';
+      return;
+    }
+    el.innerHTML=v.list.map(function(s){return rowHTML(s,v.rk)}).join('');
+  }
+
+  /* ---------- duel ---------- */
+  function pickPair(){
+    var pool=state.shows.filter(function(s){return s.status!=='plan'});
+    if(pool.length<2){duel.a=null;duel.b=null;return}
+    var a,b,tries=0;
+    do{
+      a=pool[Math.floor(Math.random()*pool.length)];
+      var others=pool.filter(function(s){return s.id!==a.id}).sort(function(x,y){return Math.abs(x.elo-a.elo)-Math.abs(y.elo-a.elo)}).slice(0,3);
+      b=others[Math.floor(Math.random()*others.length)];
+      tries++;
+    }while(tries<8&&pool.length>2&&duel.last&&((a.id===duel.last[0]&&b.id===duel.last[1])||(a.id===duel.last[1]&&b.id===duel.last[0])));
+    duel.a=a.id;duel.b=b.id;
+  }
+  function byId(id){for(var i=0;i<state.shows.length;i++){if(state.shows[i].id===id)return state.shows[i]}return null}
+  function duelCard(s){
+    return '<div class="duel-card">'+tile(s,true)+'<h3>'+esc(s.title)+'</h3><div class="meta" style="justify-content:center">'+metaLine(s)+'</div>'+
+      '<div class="note">Score '+fmt(score(s))+(s.duels>0?' · Elo '+Math.round(s.elo):'')+'</div>'+
+      '<button class="btn primary" type="button" data-action="pick" data-w="'+esc(s.id)+'">This one is better</button></div>';
+  }
+  function renderDuel(){
+    var a=byId(duel.a),b=byId(duel.b);
+    if(!a||!b||a.status==='plan'||b.status==='plan'){pickPair();a=byId(duel.a);b=byId(duel.b)}
+    var board=state.shows.filter(function(s){return s.duels>0}).sort(function(x,y){return y.elo-x.elo}).slice(0,5);
+    var html='';
+    if(!a||!b){
+      html='<div class="panel"><div class="empty">Duels need at least two rated shows. Add another show and come back.</div></div>';
+    }else{
+      html='<div class="panel"><div class="duel">'+duelCard(a)+'<div class="vs">VS</div>'+duelCard(b)+'</div>'+
+        '<div class="duel-actions"><button class="btn" type="button" data-action="skip">Skip this pair</button></div>'+
+        '<p class="legend" style="text-align:center">'+(duel.msg?esc(duel.msg):'Pick the show you would rather rewatch. Each duel moves both shows on a separate Elo ladder, which you can rank by on the Rankings tab.')+'</p></div>';
+    }
+    html+='<div class="panel" style="margin-top:1rem"><h2>Duel leaders</h2>'+
+      (board.length?'<ol class="lb">'+board.map(function(s,i){return '<li><b>'+(i+1)+'</b><span>'+esc(s.title)+'</span><span class="e">Elo '+Math.round(s.elo)+' · '+s.duels+(s.duels===1?' duel':' duels')+'</span></li>'}).join('')+'</ol>':'<p class="note" style="margin:0">No duels yet. Your first pick starts the ladder at 1000 for every show.</p>')+'</div>';
+    $('#app').innerHTML=html;
+  }
+  function doPick(wid){
+    var a=byId(duel.a),b=byId(duel.b);if(!a||!b)return;
+    var w=a.id===wid?a:b,l=w===a?b:a;
+    var K=32,exp=1/(1+Math.pow(10,(l.elo-w.elo)/400));
+    var dw=Math.round(K*(1-exp)*10)/10;
+    w.elo+=dw;l.elo-=dw;w.duels++;l.duels++;
+    duel.msg=w.title+' beat '+l.title+' (+'+Math.round(dw)+' Elo).';
+    duel.last=[a.id,b.id];
+    persist();pickPair();renderDuel();renderChrome();
+  }
+
+  /* ---------- insights ---------- */
+  function barRows(rows,max){
+    return rows.map(function(r){
+      return '<div class="brow"><span class="lab">'+esc(r.l)+'</span><span class="track"><i style="width:'+Math.max(0,Math.min(100,r.v/max*100))+'%"></i></span><span class="val">'+r.t+'</span></div>';
+    }).join('');
+  }
+  function renderStats(){
+    var rated=state.shows.filter(function(s){return s.status!=='plan'});
+    if(!rated.length){$('#app').innerHTML='<div class="panel"><div class="empty">Rate a few shows and your insights appear here.</div></div>';return}
+    var scores=rated.map(score);
+    var avg=scores.reduce(function(a,b){return a+b},0)/scores.length;
+    var top=ranked()[0];
+    var buckets=[];for(var i=0;i<10;i++)buckets.push(0);
+    scores.forEach(function(v){buckets[Math.max(0,Math.min(9,Math.round(v)-1))]++});
+    var bmax=Math.max.apply(null,buckets)||1;
+    var hist='<div class="hist">'+buckets.map(function(n){return '<div class="col">'+(n?'<span>'+n+'</span>':'')+'<i style="height:'+(n/bmax*78)+'%"></i></div>'}).join('')+'</div>'+
+      '<div class="hist-x">'+buckets.map(function(_,i){return '<span>'+(i+1)+'</span>'}).join('')+'</div>';
+    var catRows=CATS.map(function(c){
+      var t=0;rated.forEach(function(s){t+=s.scores[c[0]]});
+      return {l:c[1],v:t/rated.length,t:fmt(t/rated.length)};
+    });
+    var g={};
+    rated.forEach(function(s){s.genres.forEach(function(x){(g[x]=g[x]||[]).push(score(s))})});
+    var genreRows=Object.keys(g).map(function(k){var a=g[k].reduce(function(p,q){return p+q},0)/g[k].length;return {l:k+' ('+g[k].length+')',v:a,t:fmt(a)}}).sort(function(a,b){return b.v-a.v});
+    var net={};
+    rated.forEach(function(s){if(s.network)(net[s.network]=net[s.network]||[]).push(score(s))});
+    var netRows=Object.keys(net).map(function(k){var a=net[k].reduce(function(p,q){return p+q},0)/net[k].length;return {l:k+' ('+net[k].length+')',v:a,t:fmt(a)}}).sort(function(a,b){return b.v-a.v}).slice(0,8);
+    var c=counts();
+    $('#app').innerHTML=
+      '<div class="tiles">'+
+        '<div class="panel"><div class="v">'+rated.length+'</div><div class="k">Shows rated</div></div>'+
+        '<div class="panel"><div class="v">'+fmt(avg)+'</div><div class="k">Average score</div></div>'+
+        '<div class="panel"><div class="v">'+fmt(score(top))+'</div><div class="k">Top score, '+esc(top.title)+'</div></div>'+
+        '<div class="panel"><div class="v">'+c.plan+'</div><div class="k">On the watchlist</div></div>'+
+      '</div>'+
+      '<div class="grid2">'+
+        '<div class="panel"><h2>Score spread</h2>'+hist+'<p class="legend">Shows per overall score, rounded to the nearest whole number.</p></div>'+
+        '<div class="panel"><h2>What you reward</h2>'+barRows(catRows,10)+'<p class="legend">Average score in each category across rated shows.</p></div>'+
+        '<div class="panel"><h2>Genres</h2>'+(genreRows.length?barRows(genreRows,10):'<p class="note">Add genres to your shows to compare them.</p>')+'</div>'+
+        '<div class="panel"><h2>Networks</h2>'+(netRows.length?barRows(netRows,10):'<p class="note">Add networks to your shows to compare them.</p>')+'</div>'+
+      '</div>';
+  }
+
+  function renderAll(){
+    renderChrome();
+    if(ui.tab==='rank')renderRank();else if(ui.tab==='duel')renderDuel();else renderStats();
+  }
+
+  /* ---------- overlay ---------- */
+  function openOverlay(html){
+    $('#sheet').innerHTML=html;
+    $('#overlay').hidden=false;
+    document.documentElement.style.overflow='hidden';
+  }
+  function closeOverlay(){
+    $('#overlay').hidden=true;$('#sheet').innerHTML='';form=null;dataConfirm=false;
+    document.documentElement.style.overflow='';
+  }
+  function toast(msg){
+    var t=$('#toast');t.textContent=msg;t.hidden=false;
+    clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.hidden=true},2600);
+  }
+
+  /* ---------- show form ---------- */
+  function newDraft(){
+    return {id:null,title:'',year:null,network:'',genres:[],status:'watching',seasons:null,notes:'',
+      scores:{writing:7,acting:7,look:7,pacing:7,rewatch:7},elo:1000,duels:0,added:Date.now(),confirmDel:false};
+  }
+  function genreChips(){
+    var set={};allGenres().forEach(function(g){set[g]=1});form.genres.forEach(function(g){set[g]=1});
+    return Object.keys(set).sort().map(function(g){
+      return '<button class="chip" type="button" data-action="toggleGenre" data-g="'+esc(g)+'" aria-pressed="'+(form.genres.indexOf(g)>=0)+'">'+esc(g)+'</button>';
+    }).join('');
+  }
+  function overallOf(){var t=0;CATS.forEach(function(c){t+=form.scores[c[0]]});return t/CATS.length}
+  function openForm(id){
+    var s=id?byId(id):null;
+    form=s?JSON.parse(JSON.stringify(s)):newDraft();
+    form.confirmDel=false;
+    var statusOpts=Object.keys(STATUS).map(function(k){return '<option value="'+k+'"'+(form.status===k?' selected':'')+'>'+STATUS[k]+'</option>'}).join('');
+    var sliders=CATS.map(function(c){
+      return '<label class="slider" for="sc-'+c[0]+'"><span class="s-name">'+esc(c[1])+'</span><input type="range" id="sc-'+c[0]+'" data-score="'+c[0]+'" min="1" max="10" step="0.5" value="'+form.scores[c[0]]+'"><output id="out-'+c[0]+'">'+fmt(form.scores[c[0]])+'</output></label>';
+    }).join('');
+    openOverlay(
+      '<form id="showForm" novalidate>'+
+      '<h2 id="sheetTitle">'+(s?'Edit show':'Add a show')+'</h2>'+
+      '<div class="form-grid">'+
+        '<label class="lbl" style="grid-column:1/-1">Title<input type="text" id="f-title" maxlength="120" value="'+esc(form.title)+'" autocomplete="off"></label>'+
+        '<label class="lbl">First aired<input type="number" id="f-year" min="1900" max="2100" inputmode="numeric" value="'+(form.year==null?'':form.year)+'"></label>'+
+        '<label class="lbl">Network or service<input type="text" id="f-network" maxlength="60" value="'+esc(form.network)+'" autocomplete="off"></label>'+
+        '<label class="lbl">Status<select id="f-status">'+statusOpts+'</select></label>'+
+        '<label class="lbl">Seasons watched<input type="number" id="f-seasons" min="0" max="99" inputmode="numeric" value="'+(form.seasons==null?'':form.seasons)+'"></label>'+
+      '</div>'+
+      '<div class="form-section"><span class="cap">Genres</span><div class="chips" id="genreChips">'+genreChips()+'</div>'+
+        '<div class="inline-add"><input type="text" id="f-newgenre" maxlength="30" placeholder="Add another genre" aria-label="Add another genre" autocomplete="off"><button class="btn" type="button" data-action="addGenre">Add</button></div></div>'+
+      '<div class="form-section" id="rateBox"'+(form.status==='plan'?' hidden':'')+'><span class="cap">Your ratings, 1 to 10</span><div class="sliders">'+sliders+'</div>'+
+        '<div class="overall"><span id="overall">'+fmt(overallOf())+'</span><small>overall, the average of the five</small></div></div>'+
+      '<p class="note" id="planNote"'+(form.status==='plan'?'':' hidden')+' style="margin:1rem 0 0">Watchlist shows are not ranked. Change the status to Watching or Completed when you are ready to rate it.</p>'+
+      '<div class="form-section"><label class="lbl">Notes<textarea id="f-notes" rows="3" maxlength="1000" placeholder="Favorite episode, where you left off, who recommended it">'+esc(form.notes)+'</textarea></label></div>'+
+      '<p class="err" id="err" role="alert"></p>'+
+      '<div class="form-foot"><div id="delArea">'+(s?'<button class="btn danger" type="button" data-action="askDelete">Delete</button>':'')+'</div>'+
+        '<div class="right"><button class="btn" type="button" data-action="closeOverlay">Cancel</button><button class="btn primary" type="submit">'+(s?'Save changes':'Add to ledger')+'</button></div></div>'+
+      '</form>'
+    );
+    setTimeout(function(){var t=$('#f-title');if(t)t.focus()},0);
+  }
+  function saveForm(){
+    var title=$('#f-title').value.trim();
+    if(!title){$('#err').textContent='Enter a title before saving.';$('#f-title').focus();return}
+    var y=num($('#f-year').value);
+    if(y!==null&&(y<1900||y>2100)){$('#err').textContent='First aired should be a year between 1900 and 2100.';$('#f-year').focus();return}
+    var se=num($('#f-seasons').value);
+    if(se!==null&&(se<0||se>99)){$('#err').textContent='Seasons watched should be between 0 and 99.';$('#f-seasons').focus();return}
+    var data={title:title,year:y,network:$('#f-network').value.trim(),status:$('#f-status').value,seasons:se,genres:form.genres.slice(),
+      notes:$('#f-notes').value.trim(),scores:JSON.parse(JSON.stringify(form.scores)),updated:Date.now()};
+    if(form.id){
+      var s=byId(form.id);
+      if(s){for(var k in data)s[k]=data[k];delete s.sample}
+    }else{
+      data.id=uid();data.elo=1000;data.duels=0;data.added=Date.now();
+      state.shows.push(data);
+    }
+    var wasEdit=!!form.id;
+    persist();closeOverlay();renderAll();toast(wasEdit?'Changes saved':'Added to your ledger');
+  }
+  function doDelete(){
+    state.shows=state.shows.filter(function(s){return s.id!==form.id});
+    persist();closeOverlay();renderAll();toast('Show deleted');
+  }
+
+  /* ---------- backup panel ---------- */
+  function exportJSON(){return JSON.stringify({app:'primetime-ledger',version:1,exported:new Date().toISOString(),shows:state.shows},null,2)}
+  function openData(){
+    dataConfirm=false;
+    openOverlay(
+      '<h2 id="sheetTitle">Backup and restore</h2>'+
+      '<p class="note" style="margin:0 0 1rem">Changes save automatically as you go, so they are still here when you leave and come back. The list lives in this browser on this device only. A backup file is the safest way to keep a copy or move it to another device.</p>'+
+      '<div class="form-section" style="margin-top:0"><span class="cap">Back up</span><div style="display:flex;gap:.6rem;flex-wrap:wrap">'+
+        '<button class="btn primary" type="button" data-action="exportSave">Save backup file</button>'+
+        '<button class="btn" type="button" data-action="exportCopy">Copy as text</button></div>'+
+        '<textarea id="exportBox" rows="5" readonly hidden style="margin-top:.6rem" aria-label="Backup text"></textarea></div>'+
+      '<div class="form-section"><span class="cap">Restore</span>'+
+        '<label class="lbl">Backup file<input type="file" id="importFile" accept=".json,application/json"></label>'+
+        '<label class="lbl" style="margin-top:.6rem">Or paste backup text<textarea id="importText" rows="4" placeholder="Paste the contents of a backup here"></textarea></label>'+
+        '<p class="err" id="err" role="alert"></p>'+
+        '<button class="btn danger" type="button" data-action="importReplace" id="importBtn">Replace my list with this backup</button></div>'+
+      '<div class="form-foot"><span></span><button class="btn" type="button" data-action="closeOverlay">Close</button></div>'
+    );
+  }
+  function exportSave(){
+    try{
+      var blob=new Blob([exportJSON()],{type:'application/json'});
+      var url=URL.createObjectURL(blob);
+      var link=document.createElement('a');
+      link.href=url;link.download='primetime-ledger-backup.json';
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(function(){URL.revokeObjectURL(url)},1000);
+      toast('Backup saved');
+    }catch(e){
+      var box=$('#exportBox');if(box){box.hidden=false;box.value=exportJSON();box.select()}
+      toast('Saving is not available here. Copy the text below instead.');
+    }
+  }
+  function exportCopy(){
+    var txt=exportJSON();
+    function fallback(){var box=$('#exportBox');if(box){box.hidden=false;box.value=txt;box.focus();box.select()}toast('Select and copy the text shown')}
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(function(){toast('Backup copied')},fallback)}else fallback();
+    }catch(e){fallback()}
+  }
+  function importReplace(){
+    var txt=$('#importText').value.trim(),err=$('#err');
+    err.textContent='';
+    if(!txt){err.textContent='Choose a backup file or paste its text first.';return}
+    var d;
+    try{d=JSON.parse(txt)}catch(e){err.textContent='That text is not a valid backup. Paste the full contents of a backup file.';return}
+    var arr=Array.isArray(d)?d:(d&&Array.isArray(d.shows)?d.shows:null);
+    if(!arr){err.textContent='No shows found in that backup.';return}
+    var shows=arr.map(norm).filter(Boolean);
+    if(!shows.length){err.textContent='That backup has no usable shows.';return}
+    if(!dataConfirm){dataConfirm=true;$('#importBtn').textContent='Click again to replace '+state.shows.length+' shows with '+shows.length;return}
+    state.shows=shows;persist();closeOverlay();renderAll();toast('Restored '+shows.length+' shows');
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('[data-action]');if(!el)return;
+    var a=el.getAttribute('data-action');
+    if(a==='tab'){ui.tab=el.getAttribute('data-tab');renderAll()}
+    else if(a==='status'){ui.status=el.getAttribute('data-v');renderRank()}
+    else if(a==='by'){ui.by=el.getAttribute('data-v');renderRank()}
+    else if(a==='add'){openForm(null)}
+    else if(a==='edit'){openForm(el.getAttribute('data-id'))}
+    else if(a==='closeOverlay'){closeOverlay()}
+    else if(a==='toggleGenre'){
+      var g=el.getAttribute('data-g'),i=form.genres.indexOf(g);
+      if(i>=0)form.genres.splice(i,1);else if(form.genres.length<8)form.genres.push(g);else toast('Up to 8 genres per show');
+      $('#genreChips').innerHTML=genreChips();
+    }
+    else if(a==='addGenre'){addGenre()}
+    else if(a==='askDelete'){
+      $('#delArea').innerHTML='<span class="note" style="margin-right:.5rem">Delete this show?</span><button class="btn danger small" type="button" data-action="confirmDelete">Delete</button> <button class="btn small" type="button" data-action="cancelDelete">Keep</button>';
+    }
+    else if(a==='cancelDelete'){$('#delArea').innerHTML='<button class="btn danger" type="button" data-action="askDelete">Delete</button>'}
+    else if(a==='confirmDelete'){doDelete()}
+    else if(a==='pick'){doPick(el.getAttribute('data-w'))}
+    else if(a==='skip'){duel.msg='';pickPair();renderDuel()}
+    else if(a==='openData'){openData()}
+    else if(a==='exportSave'){exportSave()}
+    else if(a==='exportCopy'){exportCopy()}
+    else if(a==='importReplace'){importReplace()}
+    else if(a==='clearSamples'){
+      state.shows=state.shows.filter(function(s){return !s.sample});
+      persist();renderAll();toast('Examples cleared');
+    }
+  });
+  function addGenre(){
+    var inp=$('#f-newgenre');if(!inp)return;
+    var g=inp.value.trim();if(!g)return;
+    g=g.charAt(0).toUpperCase()+g.slice(1);
+    var exists=form.genres.some(function(x){return x.toLowerCase()===g.toLowerCase()});
+    if(!exists&&form.genres.length<8)form.genres.push(g);
+    inp.value='';$('#genreChips').innerHTML=genreChips();
+  }
+  document.addEventListener('input',function(e){
+    var t=e.target;
+    if(t.id==='q'){ui.q=t.value;renderList()}
+    else if(t.hasAttribute&&t.hasAttribute('data-score')&&form){
+      var k=t.getAttribute('data-score');form.scores[k]=Number(t.value);
+      $('#out-'+k).textContent=fmt(form.scores[k]);$('#overall').textContent=fmt(overallOf());
+    }
+  });
+  document.addEventListener('change',function(e){
+    var t=e.target;
+    if(t.id==='genreSel'){ui.genre=t.value;renderList()}
+    else if(t.id==='sortSel'){ui.sort=t.value;renderList()}
+    else if(t.id==='f-status'){
+      var plan=t.value==='plan';$('#rateBox').hidden=plan;$('#planNote').hidden=!plan;
+    }
+    else if(t.id==='importFile'&&t.files&&t.files[0]){
+      var r=new FileReader();
+      r.onload=function(){$('#importText').value=String(r.result||'');dataConfirm=false;$('#importBtn').textContent='Replace my list with this backup'};
+      r.readAsText(t.files[0]);
+    }
+  });
+  document.addEventListener('submit',function(e){
+    if(e.target.id==='showForm'){e.preventDefault();saveForm()}
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'&&!$('#overlay').hidden){closeOverlay();return}
+    if(e.key==='Enter'&&e.target.id==='f-newgenre'){e.preventDefault();addGenre()}
+  });
+  $('#overlay').addEventListener('mousedown',function(e){if(e.target===this)closeOverlay()});
+
+  state=load();
+  renderAll();
+  setSync('Saved in this browser');
+})();
+</script>
+</body>
+</html>
